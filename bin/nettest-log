@@ -3,9 +3,13 @@
 #
 #   nettest-log [-q] [nettest arguments]
 #
+# Thin wrapper: nettest itself records every run in runs.jsonl (see docs/run-record.md);
+# this adds the full printed output to a daily text log.
+#
 # Log file: ~/Library/Logs/network-provider-tests/YYYY-MM-DD.log
-# (override the directory with NETTEST_LOG_DIR). With -q nothing is printed to the
-# terminal, which is convenient for cron or launchd. The exit status is nettest's.
+# (directory: NETTEST_LOG_DIR, else NETTEST_DATA_DIR, else the default above). With -q
+# nothing is printed to the terminal, which is convenient for cron or launchd. The exit
+# status is nettest's.
 set -u
 
 src="${BASH_SOURCE[0]}"
@@ -19,7 +23,7 @@ BIN="$(cd "$(dirname "$src")" && pwd)"
 quiet=0
 if [ "${1:-}" = "-q" ]; then quiet=1; shift; fi
 
-log_dir="${NETTEST_LOG_DIR:-$HOME/Library/Logs/network-provider-tests}"
+log_dir="${NETTEST_LOG_DIR:-${NETTEST_DATA_DIR:-$HOME/Library/Logs/network-provider-tests}}"
 mkdir -p "$log_dir" || { echo "nettest-log: cannot create $log_dir" >&2; exit 2; }
 log_file="$log_dir/$(date +%F).log"
 

@@ -27,6 +27,7 @@ threshold=5
 
 nt_info "Default route: interface $ifc${port:+ ($port)}, gateway ${gw:-none}"
 nt_rec GW_IF "$ifc"
+nt_rec GW_KIND "$kind"
 nt_rec GW_IP "${gw:-}"
 case "$ifc" in
   utun*) nt_info "The default route goes through a tunnel interface ($ifc): all traffic uses a VPN" ;;

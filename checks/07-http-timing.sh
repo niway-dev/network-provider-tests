@@ -25,7 +25,9 @@ for u in $urls; do
   read -r rc < "$NT_TMP/t.$i.rc"
   if [ "${rc:-1}" != 0 ]; then
     failed=$((failed + 1))
-    nt_warn "$u: curl failed (exit ${rc:-?}): $(head -n 1 "$NT_TMP/t.$i.err")"
+    err=$(head -n 1 "$NT_TMP/t.$i.err")
+    nt_rec HTTP_FAIL "$u|${rc:-}|$err"
+    nt_warn "$u: curl failed (exit ${rc:-?}): $err"
     continue
   fi
   read -r dns conn tls ttfb tot code ip < "$NT_TMP/t.$i"
@@ -56,7 +58,7 @@ for u in $urls; do
   else
     nt_pass "$line"
   fi
-  nt_rec HTTP_TIMING "$u|$fam|$p_dns|$p_conn|$p_tls|$p_ttfb|$p_total"
+  nt_rec HTTP_TIMING "$u|$(printf '%s' "$fam" | tr '[:upper:]' '[:lower:]')|$p_dns|$p_conn|$p_tls|$p_ttfb|$p_total|$code"
 done
 
 nt_rec HTTP_FAILED "$failed"

@@ -32,6 +32,7 @@ sys_max=0; sys_status=PASS; i=0
 for n in $names; do
   i=$((i + 1))
   read -r ms st < "$NT_TMP/s.$i"
+  nt_rec DNS_SYS "$n|$ms|$st"
   if [ "$st" != NOERROR ]; then
     nt_fail "$n: no answer (${ms} ms, ${st})"
     sys_status=FAIL
@@ -61,10 +62,10 @@ nt_info "(b) Each DNS server queried directly (google.com, 2 s limit)"
 servers_file="$NT_TMP/servers"
 : > "$servers_file"
 seen=" "
-add_server() { # group server label
+add_server() { # group server label via_vpn
   case "$seen" in *" $2 "*) return ;; esac
   seen="$seen$2 "
-  printf '%s|%s|%s\n' "$1" "$2" "$3" >> "$servers_file"
+  printf '%s|%s|%s|%s\n' "$1" "$2" "$3" "${4:-0}" >> "$servers_file"
 }
 
 primary_if=""
@@ -75,8 +76,9 @@ while IFS='|' read -r section idx _ ns ifn; do
     first=0
     primary_if=$(nt_route_if "${ns%% *}")
     label="resolver #$idx, primary"
-    case "$primary_if" in utun*) label="$label, via VPN tunnel $primary_if" ;; *) [ -n "$primary_if" ] && label="$label, via $primary_if" ;; esac
-    for s in $ns; do add_server primary "$s" "$label"; done
+    primary_vpn=0
+    case "$primary_if" in utun*) primary_vpn=1; label="$label, via VPN tunnel $primary_if" ;; *) [ -n "$primary_if" ] && label="$label, via $primary_if" ;; esac
+    for s in $ns; do add_server primary "$s" "$label" "$primary_vpn"; done
     continue
   fi
   # First resolver bound to a non-tunnel interface = the physical network's DNS.
@@ -96,7 +98,7 @@ have_v6=0
 nt_has_global_ipv6 && have_v6=1
 
 j=0
-while IFS='|' read -r group server label; do
+while IFS='|' read -r group server label via_vpn; do
   j=$((j + 1))
   # IPv6 servers need IPv6 connectivity, except link-local ones (fe80::...%if).
   case "$server" in
@@ -124,13 +126,13 @@ done < "$servers_file"
 wait
 
 primary_bad=""; any_ok=0; any_tried=0; j=0
-while IFS='|' read -r group server label; do
+while IFS='|' read -r group server label via_vpn; do
   j=$((j + 1))
   read -r res val < "$NT_TMP/d.$j"
   case "$res" in
     SKIP)
       nt_skip "$server ($label): IPv6 server but this Mac has no global IPv6 address"
-      nt_rec DNS_SERVER "$group|$server|SKIP|0"
+      nt_rec DNS_SERVER "$group|$server|SKIP|0|$via_vpn|$label"
       continue ;;
     OK)
       any_tried=$((any_tried + 1)); any_ok=$((any_ok + 1))
@@ -148,7 +150,7 @@ while IFS='|' read -r group server label; do
       [ "$group" = primary ] && primary_bad="$primary_bad $server"
       ;;
   esac
-  nt_rec DNS_SERVER "$group|$server|$res|$val"
+  nt_rec DNS_SERVER "$group|$server|$res|$val|$via_vpn|$label"
 done < "$servers_file"
 
 nt_rec DNS_PRIMARY_TIMEOUTS "${primary_bad# }"

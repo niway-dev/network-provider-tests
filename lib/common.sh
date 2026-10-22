@@ -9,6 +9,8 @@
 #   - Do not call the nt_pass/nt_warn/nt_fail helpers from a subshell (pipes,
 #     command substitution): the counters would be lost. Use `done < <(cmd)`.
 
+NT_VERSION="0.2.0"
+
 NT_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NT_ROOT="$(cd "$NT_LIB_DIR/.." && pwd)"
 
@@ -31,15 +33,18 @@ fi
 
 NT_FAILS=0
 NT_WARNS=0
+NT_PASSES=0
+NT_INFOS=0
+NT_SKIPS=0
 NT_CHECK_NAME=""
 
 # --- output helpers -----------------------------------------------------------
 nt_tag() { # color label text
   printf '  %s%-4s%s  %s\n' "$1" "$2" "$C_RESET" "$3"
 }
-nt_pass() { nt_tag "$C_GREEN" PASS "$*"; }
-nt_info() { nt_tag "$C_BLUE" INFO "$*"; }
-nt_skip() { nt_tag "$C_GRAY" SKIP "$*"; }
+nt_pass() { NT_PASSES=$((NT_PASSES + 1)); nt_tag "$C_GREEN" PASS "$*"; }
+nt_info() { NT_INFOS=$((NT_INFOS + 1)); nt_tag "$C_BLUE" INFO "$*"; }
+nt_skip() { NT_SKIPS=$((NT_SKIPS + 1)); nt_tag "$C_GRAY" SKIP "$*"; }
 nt_warn() { NT_WARNS=$((NT_WARNS + 1)); nt_tag "$C_YELLOW" WARN "$*"; }
 nt_fail() { NT_FAILS=$((NT_FAILS + 1)); nt_tag "$C_RED" FAIL "$*"; }
 nt_hint() { printf '        %s-> %s%s\n' "$C_GRAY" "$*" "$C_RESET"; }
@@ -52,10 +57,17 @@ nt_begin() {
 }
 
 # nt_end: record the check status and exit 1 if any FAIL was printed.
+# Status: FAIL if any line was FAIL, else WARN if any was WARN, else PASS if the
+# check passed anything, else SKIP if it only skipped, else INFO if it only
+# informed. (SKIP/INFO lines next to PASS lines do not downgrade a check.)
 nt_end() {
   local status=PASS key
-  [ "$NT_WARNS" -gt 0 ] && status=WARN
-  [ "$NT_FAILS" -gt 0 ] && status=FAIL
+  if [ "$NT_FAILS" -gt 0 ]; then status=FAIL
+  elif [ "$NT_WARNS" -gt 0 ]; then status=WARN
+  elif [ "$NT_PASSES" -gt 0 ]; then status=PASS
+  elif [ "$NT_SKIPS" -gt 0 ]; then status=SKIP
+  elif [ "$NT_INFOS" -gt 0 ]; then status=INFO
+  fi
   key="STATUS_$(printf '%s' "$NT_CHECK_NAME" | tr '-' '_')"
   nt_rec "$key" "$status"
   [ "$NT_FAILS" -gt 0 ] && exit 1
@@ -119,6 +131,12 @@ nt_now_ms() {
 
 # nt_gt <a> <b>: true if a > b (floating point).
 nt_gt() { awk -v a="$1" -v b="$2" 'BEGIN { exit !(a + 0 > b + 0) }'; }
+
+# nt_secs_to_ms <seconds>: "0.594" -> "594" (integer milliseconds; empty on bad input).
+nt_secs_to_ms() {
+  case "${1:-}" in ''|*[!0-9.]*) echo ""; return ;; esac
+  awk -v s="$1" 'BEGIN { printf "%d\n", s * 1000 + 0.5 }'
+}
 
 # --- ping ---------------------------------------------------------------------
 # nt_ping <host> <count> [v6]

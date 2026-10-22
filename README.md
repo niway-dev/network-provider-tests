@@ -7,7 +7,9 @@ tools it already ships (`scutil`, `route`, `dig`, `curl`, `ping`, `ping6`,
 
 Each check prints `PASS` / `WARN` / `FAIL` / `INFO` / `SKIP` lines with a short
 plain-English explanation of what a failure means. `nettest` then combines the
-results into a diagnosis and tells you what to do.
+results into a diagnosis and tells you what to do. Every run is also saved as one
+line of JSON, so you keep a history of metrics without an AI assistant or any
+extra tool: `nettest history` shows it, `nettest watch` builds it while you work.
 
 ## Install
 
@@ -25,22 +27,53 @@ ln -s "$PWD/bin/nettest" ~/.local/bin/nettest
 ln -s "$PWD/bin/nettest-log" ~/.local/bin/nettest-log
 ```
 
+Run the tests (no network needed) with `tests/run.sh`.
+
 ## Usage
 
 ```sh
 nettest              # run every check, then print a diagnosis (about 30-60 s)
 nettest dns          # run one check: by name ("dns"), file stem ("06-dns") or number ("06")
 nettest --list       # list the checks
-nettest-log          # run everything and append the output to a daily log
+nettest history      # table of the last 20 recorded runs
+nettest history 50   # the last 50
+nettest history --since 2h   # only runs from the last 2 hours (30m, 2h, 1d, 1w)
+nettest watch        # a full run every 5 minutes until Ctrl-C, one line per run
+nettest watch 1      # ... every minute
+nettest --version
+nettest-log          # run everything and also append the printed output to a daily text log
 nettest-log -q       # same, but print nothing (handy for cron or launchd)
 ```
 
 Exit status of `nettest` is `0` when no check printed `FAIL`, `1` otherwise.
 Set `NO_COLOR=1` to turn colors off.
 
-Logs go to `~/Library/Logs/network-provider-tests/YYYY-MM-DD.log` (override the
-directory with `NETTEST_LOG_DIR`). Run `nettest-log` whenever the connection
-misbehaves: a folder of timestamped runs is the evidence your ISP asks for.
+### Where the data lives
+
+Every `nettest` run (full or single-check) appends one JSON line to
+`~/Library/Logs/network-provider-tests/runs.jsonl`. Override the directory with
+`NETTEST_DATA_DIR`. `nettest history` and `nettest watch` read and write that
+file. The line format is documented in [`docs/run-record.md`](docs/run-record.md)
+and is a stable contract: a future rewrite must keep reading and writing it, so
+your history survives.
+
+`nettest-log` is a thin wrapper that also keeps the full printed output in
+`YYYY-MM-DD.log` in the same directory (override with `NETTEST_LOG_DIR`).
+
+### Catching an intermittent outage
+
+Leave `nettest watch 5` running in a terminal tab. Each run is recorded, and the
+tab prints only a line such as `2026-10-22 11:25:22  WARN  ipv4_degraded  (24 s)`.
+Afterwards `nettest history --since 1d` shows when it failed: that list is the
+evidence your ISP asks for.
+
+```text
+TIME                 RESULT   GW_MS  V4_HTTPS  V6_HTTPS  DNS_MS  DIAGNOSIS
+2026-10-22 10:40:11  PASS       0.7       4/4       2/2      43  -
+2026-10-22 10:45:12  FAIL       0.8       0/4       0/2    1204  isp_down,system_dns_slow
+```
+
+(Illustrative.) FAIL rows are red and WARN rows yellow on a terminal.
 
 ## Checks
 
@@ -75,9 +108,13 @@ After the checks, `nettest` prints the most likely explanation:
 | IPv4 HTTPS mostly fails, IPv6 works | ISP IPv4 outage (often their CGNAT) | Restart the router or ONT; if it persists, tell the ISP that IPv4 stops after hop N and IPv6 works |
 | IPv4 and IPv6 both fail past the gateway | ISP down entirely | Restart the router or ONT; report to the ISP |
 | IPv4 fails and there is no IPv6 to compare | Probably an ISP outage | Same as above |
-| System DNS is slow, but direct queries to some servers are fast | The primary resolver is timing out; the diagnosis names the server, and says so when it is a VPN resolver | Disconnect the VPN or fix its upstream DNS; or change the DNS servers |
+| System DNS is slow, public resolvers answer, but the primary resolver times out | The primary resolver is dead; the diagnosis names the server, and says so when it is a VPN resolver | Disconnect the VPN or fix its upstream DNS; or change the DNS servers |
+| Most public IPv4 resolvers (1.1.1.1, 8.8.8.8, 9.9.9.9) time out too | Degraded IPv4 path (`ipv4_degraded`). A failing primary or VPN resolver is probably a consequence, not the cause | Re-run or use `nettest watch`; report IPv4 instability to the ISP |
 | Ping loss but HTTPS works | The ISP deprioritizes ping | Nothing, harmless |
-| Nothing wrong | "No problem detected right now." | Run `nettest-log` during the next incident |
+| Nothing wrong | "No problem detected right now." | Run `nettest watch 5` during the next incident |
+
+Each finding has a stable code (`ipv4_outage`, `ipv4_degraded`, ...) stored in the
+run record; the list is in [`docs/run-record.md`](docs/run-record.md).
 
 ## Example output
 
@@ -108,11 +145,15 @@ Illustrative only; addresses use documentation ranges.
    loading. The VPN was the primary resolver; one of its servers did not answer,
    so each lookup waited for the timeout before the OS tried another server.
 
+Write-ups of real incidents, with measurements and what is confirmed versus
+only suspected, are in [`docs/incidents/`](docs/incidents/), for example
+[2026-10-22: intermittent IPv4 failures](docs/incidents/2026-10-22-isp-ipv4-intermittent.md).
+
 ## Reporting to the ISP
 
 [`templates/isp-complaint.es.md`](templates/isp-complaint.es.md) is a Spanish
-complaint template. Fill its placeholders from a failing `nettest` run (the
-logs written by `nettest-log` keep the timestamps).
+complaint template. Fill its placeholders from the failing runs in
+`nettest history` (the records keep the timestamps).
 
 ## Roadmap
 

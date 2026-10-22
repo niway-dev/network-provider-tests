@@ -27,6 +27,7 @@ while read -r n ip rest; do
   hops=$n
   label=""
   if [ "$ip" = "*" ]; then
+    nt_rec TRACE_HOP "$n||"
     line="$n  *  (no reply)"
   else
     last_hop=$n; last_ip=$ip
@@ -35,6 +36,7 @@ while read -r n ip rest; do
       label="  [private/CGNAT range: likely ISP internal network]"
       internal=$((internal + 1))
     fi
+    nt_rec TRACE_HOP "$n|$ip|${rest%% ms*}"
     line="$n  $ip  ${rest%% ms*} ms$label"
   fi
   nt_dim "$line"
@@ -44,6 +46,8 @@ nt_rec TRACE_REACHED "$reached"
 nt_rec TRACE_LAST_HOP "$last_hop"
 nt_rec TRACE_LAST_IP "$last_ip"
 nt_rec TRACE_HOPS "$hops"
+nt_rec TRACE_TARGET "$TARGET"
+nt_rec TRACE_INTERNAL_HOPS "$internal"
 
 if [ "$hops" -eq 0 ]; then
   nt_warn "traceroute produced no hops: $(printf '%s' "$trace" | head -n 1)"

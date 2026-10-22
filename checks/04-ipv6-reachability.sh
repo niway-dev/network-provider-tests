@@ -41,7 +41,8 @@ icmp_ok=0; icmp_total=0; i=0
 if nt_have ping6; then
   for t in $ping_targets; do
     i=$((i + 1))
-    read -r _ recv loss avg < "$NT_TMP/p6.$i"
+    read -r sent recv loss avg < "$NT_TMP/p6.$i"
+    nt_rec V6_PING "$t|$sent|$recv|$loss|$avg"
     icmp_total=$((icmp_total + 1))
     if [ "$recv" -eq 0 ]; then
       nt_warn "ping6 $t: no replies (100% loss)"
@@ -63,9 +64,11 @@ for u in $https_targets; do
   read -r status a rest < "$NT_TMP/h6.$i"
   https_total=$((https_total + 1))
   if [ "$status" = OK ]; then
+    nt_rec V6_HTTPS "$u|1|$a|$(nt_secs_to_ms "$rest")|"
     https_ok=$((https_ok + 1))
     nt_pass "HTTPS over IPv6 $u: HTTP $a in ${rest}s"
   else
+    nt_rec V6_HTTPS "$u|0|||$rest"
     nt_warn "HTTPS over IPv6 $u: failed ($rest)"
   fi
 done
