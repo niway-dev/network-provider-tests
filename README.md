@@ -108,6 +108,12 @@ Illustrative only; addresses use documentation ranges.
    loading. The VPN was the primary resolver; one of its servers did not answer,
    so each lookup waited for the timeout before the OS tried another server.
 
+## Reporting to the ISP
+
+[`templates/isp-complaint.es.md`](templates/isp-complaint.es.md) is a Spanish
+complaint template. Fill its placeholders from a failing `nettest` run (the
+logs written by `nettest-log` keep the timestamps).
+
 ## Roadmap
 
 A desktop (menu bar) app that runs these checks is planned. The scripts stay
