@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# nettest-log - run nettest and append the full, timestamped output to a daily log.
+#
+#   nettest-log [-q] [nettest arguments]
+#
+# Log file: ~/Library/Logs/network-provider-tests/YYYY-MM-DD.log
+# (override the directory with NETTEST_LOG_DIR). With -q nothing is printed to the
+# terminal, which is convenient for cron or launchd. The exit status is nettest's.
+set -u
+
+src="${BASH_SOURCE[0]}"
+while [ -L "$src" ]; do
+  dir="$(cd "$(dirname "$src")" && pwd)"
+  src="$(readlink "$src")"
+  case "$src" in /*) ;; *) src="$dir/$src" ;; esac
+done
+BIN="$(cd "$(dirname "$src")" && pwd)"
+
+quiet=0
+if [ "${1:-}" = "-q" ]; then quiet=1; shift; fi
+
+log_dir="${NETTEST_LOG_DIR:-$HOME/Library/Logs/network-provider-tests}"
+mkdir -p "$log_dir" || { echo "nettest-log: cannot create $log_dir" >&2; exit 2; }
+log_file="$log_dir/$(date +%F).log"
+
+run() {
+  echo "===== $(date '+%Y-%m-%dT%H:%M:%S%z') nettest ${*:-(all checks)} ====="
+  "$BIN/nettest" "$@"
+  local rc=$?
+  echo "===== finished, exit status $rc ====="
+  echo
+  return "$rc"
+}
+
+# stdout is not a terminal here, so nettest prints without colors.
+if [ "$quiet" -eq 1 ]; then
+  run "$@" >> "$log_file" 2>&1
+  exit $?
+fi
+run "$@" 2>&1 | tee -a "$log_file"
+exit "${PIPESTATUS[0]}"
