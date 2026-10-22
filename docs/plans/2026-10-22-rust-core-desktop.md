@@ -37,7 +37,7 @@ serialize then deserialize is identity; unknown fields are ignored.
 ### T1.3 Store
 
 Files: `crates/nettest-core/src/store.rs`.
-Behavior: directory from `NETTEST_LOG_DIR`, else macOS
+Behavior: directory from `NETTEST_DATA_DIR`, else macOS
 `~/Library/Logs/network-provider-tests`, else `dirs::data_local_dir()/network-provider-tests`.
 `append` writes one buffer plus `\n` in append mode; `read_all` skips bad lines
 and returns their count.

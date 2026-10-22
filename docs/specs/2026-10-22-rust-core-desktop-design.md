@@ -27,7 +27,7 @@ scripts.
 | 7 | DNS: `hickory-resolver` with one `NameServerConfig` per server for direct queries; the OS resolver for the "system path" timing | Pure Rust, per-server timeout control, same on both OSes | none |
 | 8 | HTTPS probes and phase timing: manual TCP connect to a v4/v6 address + `tokio-rustls` + a one-line HTTP/1.1 request; no `reqwest` | Only way to force the address family and time each phase; no OpenSSL on Windows | none |
 | 9 | OS introspection: `netdev` (default gateway/interface both OSes); `scutil --dns` and `route -n get` on macOS; `ipconfig` crate + `GetBestInterfaceEx` on Windows | `scutil` output is structured and not localized; Windows gets the same data from `GetAdaptersAddresses` through `ipconfig` | none |
-| 10 | Store: macOS `~/Library/Logs/network-provider-tests/`, Windows `%LOCALAPPDATA%\network-provider-tests\`; `NETTEST_LOG_DIR` overrides both | macOS path matches the bash tool, so history is shared during the transition | none |
+| 10 | Store: macOS `~/Library/Logs/network-provider-tests/`, Windows `%LOCALAPPDATA%\network-provider-tests\`; `NETTEST_DATA_DIR` overrides both | macOS path matches the bash tool, so history is shared during the transition | none |
 | 11 | Desktop: Tauri 2 tray app, `src-tauri` depends on `nettest-core` as a path crate; renderer React + TS + Vite, Bun, oxlint + oxfmt | Same shape as the owner's other Tauri app; OS work stays in Rust | none |
 | 12 | No distribution work: local `cargo` / `bun tauri dev` builds only | Internal use | none |
 | 13 | Bash is deleted when the Rust CLI meets the parity criterion below, not before | Bash is the working tool today | none |
@@ -189,7 +189,7 @@ nettest --json          print the run record instead of text
 
 Exit status 0 when no check is `fail`, 1 otherwise, 2 on usage errors.
 `NO_COLOR` and a non-tty stdout disable colors (crate `owo-colors` or `anstyle`;
-either, smallest wins). `NETTEST_LOG_DIR` overrides the store directory.
+either, smallest wins). `NETTEST_DATA_DIR` overrides the store directory.
 
 ## Desktop app
 

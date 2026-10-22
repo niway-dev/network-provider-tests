@@ -36,6 +36,9 @@ what was copied from the terminal. From version 0.2.0 each run is stored in
 | | DNS | VPN resolvers 2 and 3 timed out (resolver 1 answered in 8 ms); public 1.1.1.1 and 8.8.8.8 timed out; 9.9.9.9 answered in 5 ms |
 | | System lookups | 1 to 2 s |
 | About 11:20 | GitHub API over IPv4 | Timed out again; `git push` succeeded on retry |
+| 11:20, `nettest` 0.2.0 run | HTTPS over IPv4 and IPv6 | Both failed (0/4, 0/2), diagnosis `isp_down`; ping6 still answered and traceroute reached 1.1.1.1 at hop 13 |
+| | System lookups | 1.2 s worst |
+| By 11:25, `nettest watch 1` | Full suite | Healthy again (`PASS`) |
 
 ## Interpretation
 
