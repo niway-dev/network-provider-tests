@@ -57,6 +57,16 @@ pub fn run() {
                 let _ = window.hide();
             }
         })
-        .run(tauri::generate_context!())
-        .expect("error while running the nettest desktop app");
+        .build(tauri::generate_context!())
+        .expect("error while building the nettest desktop app")
+        .run(|_app, event| {
+            // Only the tray's Quit (an explicit exit code) ends the app; the
+            // implicit exit when the last window closes is refused.
+            if let tauri::RunEvent::ExitRequested { api, code, .. } = event {
+                eprintln!("nettest-desktop: exit requested (code {code:?})");
+                if code.is_none() {
+                    api.prevent_exit();
+                }
+            }
+        });
 }

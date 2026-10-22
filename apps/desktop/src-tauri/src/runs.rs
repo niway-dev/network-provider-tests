@@ -37,7 +37,18 @@ pub fn is_running(app: &AppHandle) -> bool {
 
 /// Run `ids`, record the result, and update the tray and the window.
 /// Returns `Err("busy")` if another run is in progress.
+///
+/// The run is its own task: stopping "Watch" (which aborts the timer task
+/// that called this) never cancels a run that is already going, so the run
+/// is still recorded and the "running" flag stays accurate until it ends.
 pub async fn execute(app: &AppHandle, ids: Vec<CheckId>) -> Result<RunView, String> {
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move { run_and_record(&app, ids).await })
+        .await
+        .map_err(|e| format!("the run stopped unexpectedly: {e}"))?
+}
+
+async fn run_and_record(app: &AppHandle, ids: Vec<CheckId>) -> Result<RunView, String> {
     let state = app.state::<AppState>();
     {
         let mut running = state.running.lock().unwrap();
