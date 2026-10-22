@@ -89,7 +89,7 @@ hints indented with `->`, `== Summary ==`, `== Diagnosis ==`), colors off when
 Accept: a snapshot test renders a fake full run and compares to a checked-in
 text file; the file is reviewed once against real bash output.
 
-### T1.9 Real probes on macOS: ping, HTTPS, DNS
+### T1.9 Real probes on macOS: ping, HTTPS, DNS (done)
 
 Files: `src/probes/os/mod.rs`, `ping.rs` (ping-async), `https.rs`
 (tokio + tokio-rustls + webpki-roots, HEAD request, phase timestamps),
@@ -98,7 +98,7 @@ single-server resolver per direct query, `attempts = 0`, cache off).
 Accept: `cargo run -p nettest-cli -- ipv4-reachability` and `-- dns` on the
 owner's Mac print lines equivalent to bash checks 03 and 06; no sudo prompt.
 
-### T1.10 Real probes on macOS: introspection
+### T1.10 Real probes on macOS: introspection (done)
 
 Files: `src/probes/os/macos.rs`: `netdev` for default gateway/interface and
 global IPv6; `scutil --dns` parsed into `ResolverEntry` (section main/scoped,
@@ -108,7 +108,7 @@ index, domain, nameservers, interface) with a unit test on a captured sample;
 Accept: `nettest local-network`, `nettest vpn-detection` match bash 01 and 02
 on the owner's Mac, with and without a VPN connected.
 
-### T1.11 Traceroute on macOS
+### T1.11 Traceroute on macOS (done)
 
 Files: `src/probes/os/traceroute_macos.rs` (socket2 `SOCK_DGRAM`/`IPPROTO_ICMP`,
 `IP_TTL` 1..15, 1 s wait, one probe per hop, parse the IP header plus ICMP
@@ -121,7 +121,7 @@ Accept: `nettest route-trace` lists hops like bash 05; parser unit tests with
 English and Spanish `traceroute`/`tracert` samples (hop lines, `*` lines,
 header lines ignored).
 
-### T1.12 CLI commands
+### T1.12 CLI commands (done)
 
 Files: `crates/nettest-cli/src/main.rs` (clap): default run, `<check>` by name,
 stem or number, `--list`, `--json`, `history [-n N] [--json]`,

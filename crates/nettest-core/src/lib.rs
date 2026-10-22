@@ -2,6 +2,7 @@
 
 pub mod checks;
 pub mod diagnosis;
+pub mod history;
 pub mod model;
 pub mod probes;
 pub mod record;
