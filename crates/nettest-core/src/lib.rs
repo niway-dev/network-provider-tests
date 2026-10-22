@@ -5,6 +5,8 @@ pub mod diagnosis;
 pub mod model;
 pub mod probes;
 pub mod record;
+pub mod render;
+pub mod runner;
 pub mod store;
 
 pub fn version() -> &'static str {

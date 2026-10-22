@@ -1,0 +1,62 @@
+nettest  2026-10-22 11:00:00 -0500  on test-host
+
+== 01 Local network: router / gateway ==
+  INFO  Default route: interface en0 (Wi-Fi), gateway 192.0.2.1
+  PASS  Gateway 192.0.2.1: 0% loss, avg 2.000 ms (wifi)
+
+== 02 VPN detection: tunnels and DNS routing ==
+  PASS  No utun interface with an IPv4 address (no VPN-style tunnel is active)
+  INFO  Resolvers with a domain or search scope (from scutil --dns):
+        none (a single global resolver is configured)
+  PASS  Primary resolver #1 starts with 192.0.2.1, reached through en0 (physical network)
+
+== 03 IPv4 reachability: ping and HTTPS ==
+  PASS  ping 1.1.1.1: 0% loss, avg 2.000 ms
+  PASS  ping 8.8.8.8: 0% loss, avg 2.000 ms
+  PASS  ping 9.9.9.9: 0% loss, avg 2.000 ms
+        Note: ICMP loss alone, with HTTPS still working, is usually the ISP deprioritizing ping, not an outage.
+  PASS  HTTPS over IPv4 https://www.google.com: HTTP 200 in 0.300s
+  PASS  HTTPS over IPv4 https://1.1.1.1: HTTP 200 in 0.300s
+  PASS  HTTPS over IPv4 https://github.com: HTTP 200 in 0.300s
+  PASS  HTTPS over IPv4 https://www.cloudflare.com: HTTP 200 in 0.300s
+
+== 04 IPv6 reachability: ping6 and HTTPS ==
+  INFO  Global IPv6 address present
+  PASS  ping6 2001:4860:4860::8888: 0% loss, avg 2.000 ms
+  PASS  ping6 2606:4700:4700::1111: 0% loss, avg 2.000 ms
+  PASS  HTTPS over IPv6 https://www.google.com: HTTP 200 in 0.300s
+  PASS  HTTPS over IPv6 https://www.cloudflare.com: HTTP 200 in 0.300s
+
+== 05 Route trace: where does IPv4 traffic stop? ==
+        1  192.0.2.1  1.500 ms
+        2  1.1.1.1  12.000 ms
+  PASS  Reached 1.1.1.1 at hop 2
+
+== 06 DNS: system resolver and each server ==
+  INFO  (a) Lookup time through the system's primary resolver
+  PASS  google.com: 40 ms
+  PASS  github.com: 40 ms
+  PASS  cloudflare.com: 40 ms
+  PASS  wikipedia.org: 40 ms
+  INFO  (b) Each DNS server queried directly (google.com, 2 s limit)
+  PASS  192.0.2.1 (resolver #1, primary, via en0): 10 ms
+  PASS  1.1.1.1 (public): 10 ms
+  PASS  8.8.8.8 (public): 10 ms
+  PASS  9.9.9.9 (public): 10 ms
+
+== 07 HTTP timing: which phase is slow? ==
+  PASS  https://www.google.com via IPv4: dns 5 ms, connect 20 ms, tls 30 ms, ttfb 245 ms, total 300 ms (HTTP 200)
+  PASS  https://github.com via IPv4: dns 5 ms, connect 20 ms, tls 30 ms, ttfb 245 ms, total 300 ms (HTTP 200)
+
+== Summary ==
+  PASS  01-local-network
+  PASS  02-vpn-detection
+  PASS  03-ipv4-reachability
+  PASS  04-ipv6-reachability
+  PASS  05-route-trace
+  PASS  06-dns
+  PASS  07-http-timing
+
+== Diagnosis ==
+  * No problem detected right now.
+      Checks run: local-network vpn-detection ipv4-reachability ipv6-reachability route-trace dns http-timing. If the problem comes and goes, run nettest watch during an incident.

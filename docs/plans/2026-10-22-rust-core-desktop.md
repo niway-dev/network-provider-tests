@@ -62,7 +62,7 @@ icmp_deprioritized, unmatched_warn, no_problem.
 Accept: `cargo test -p nettest-core diagnosis` passes; each row asserts the
 exact `code` list in order and the first sentence of each summary.
 
-### T1.6 Checks 01, 03, 04 (gateway, IPv4, IPv6) against the fake
+### T1.6 Checks 01, 03, 04 (gateway, IPv4, IPv6) against the fake (done)
 
 Files: `src/checks/local_network.rs`, `ipv4_reachability.rs`,
 `ipv6_reachability.rs`, tests next to each.
@@ -71,7 +71,7 @@ Thresholds and wording copied from the bash scripts (5 ms wired / 20 ms Wi-Fi,
 Accept: tests cover pass, warn (loss, latency), fail, skip (no gateway, no
 global IPv6); line texts match the bash strings.
 
-### T1.7 Checks 02, 05, 06, 07 against the fake
+### T1.7 Checks 02, 05, 06, 07 against the fake (done)
 
 Files: `vpn_detection.rs`, `route_trace.rs`, `dns.rs`, `http_timing.rs`.
 `route_trace` includes `is_isp_internal(ip)` with a table test for `10/8`,
@@ -79,7 +79,7 @@ Files: `vpn_detection.rs`, `route_trace.rs`, `dns.rs`, `http_timing.rs`.
 selection and the 3000/1000/1000 ms thresholds.
 Accept: tests cover each bash branch, including DNS "primary timeouts via VPN".
 
-### T1.8 Runner and text renderer
+### T1.8 Runner and text renderer (done)
 
 Files: `src/runner.rs`, `src/render.rs`.
 Runner: ordered checks, per-check `tokio::time::timeout` (60 s), envelope
