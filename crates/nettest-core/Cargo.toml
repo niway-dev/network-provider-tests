@@ -1,0 +1,21 @@
+[package]
+name = "nettest-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Checks, diagnosis, run record and store for nettest"
+
+[dependencies]
+async-trait = "0.1.92"
+chrono = { version = "0.4.45", default-features = false, features = ["clock", "std"] }
+dirs = "7.0.0"
+libc = "0.2.191"
+netdev = "0.46.3"
+ping-async = "1.0.2"
+rustls = { version = "0.23.46", default-features = false, features = ["ring", "std", "tls12"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+socket2 = "0.6.5"
+tokio = { version = "1.54.1", features = ["rt-multi-thread", "macros", "net", "time", "process", "io-util", "signal", "sync"] }
+tokio-rustls = { version = "0.26.6", default-features = false, features = ["ring", "tls12"] }
+webpki-roots = "1.0.10"
