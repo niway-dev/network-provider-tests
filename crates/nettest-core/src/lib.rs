@@ -1,5 +1,6 @@
 //! nettest core: checks, probes, diagnosis, run record and store.
 
+pub mod checks;
 pub mod diagnosis;
 pub mod model;
 pub mod probes;
