@@ -417,3 +417,222 @@ fn skipped_public_servers_are_not_counted_as_tried() {
     ];
     assert_eq!(codes(&r), ["no_problem"]);
 }
+
+// --- Partial IPv4 failure: HTTPS is not "working" (observed twice in a real outage) ---
+
+fn https_probe(url: &str, ok: bool, error: Option<&str>) -> HttpsTarget {
+    HttpsTarget {
+        url: url.into(),
+        ok,
+        http_code: if ok { Some(200) } else { None },
+        time_ms: if ok { Some(300) } else { None },
+        error: error.map(str::to_string),
+    }
+}
+
+fn http_probe_ipv4(url: &str, connect_ms: u64) -> HttpProbe {
+    HttpProbe {
+        url: url.into(),
+        ok: true,
+        family: Some("ipv4".into()),
+        connect_ms: Some(connect_ms),
+        ..Default::default()
+    }
+}
+
+fn set_v4(r: &mut RunRecord, ok: u32, icmp_ok: u32) {
+    let v4 = r.checks.ipv4_reachability.as_mut().unwrap();
+    v4.https.ok = Some(ok);
+    v4.icmp.ok = Some(icmp_ok);
+}
+
+#[test]
+fn real_run_1_partial_https_and_check_07_failure() {
+    // Mirrors line 1 of tests/fixtures/run-bash-real.jsonl.
+    let mut r = healthy_core();
+    set_v4(&mut r, 2, 0);
+    r.checks.ipv4_reachability.as_mut().unwrap().https.targets = vec![
+        https_probe("https://www.google.com", false, Some("timed out after 6s")),
+        https_probe("https://1.1.1.1", true, None),
+        https_probe("https://github.com", false, Some("timed out after 6s")),
+        https_probe("https://www.cloudflare.com", true, None),
+    ];
+    r.checks.http_timing.as_mut().unwrap().probes = vec![HttpProbe {
+        url: "https://github.com".into(),
+        ok: false,
+        error: Some("curl: (28) Connection timed out after 10006 milliseconds".into()),
+        ..Default::default()
+    }];
+    let d = r.checks.dns.as_mut().unwrap();
+    d.primary_timeouts = vec!["198.51.100.2".into(), "198.51.100.3".into()];
+    d.servers = vec![
+        server("primary", "198.51.100.2", "timeout", false),
+        server("public", "1.1.1.1", "timeout", false),
+        server("public", "8.8.8.8", "timeout", false),
+        server("public", "9.9.9.9", "ok", false),
+    ];
+    let fs = diagnose(&r);
+    assert_eq!(codes(&r), ["ipv4_degraded"], "no icmp_deprioritized");
+    assert_eq!(
+        fs[0].summary,
+        "Degraded IPv4 path: 2 of 4 IPv4 HTTPS probes timed out; github.com did not connect (check 07); public DNS servers timed out (1.1.1.1, 8.8.8.8)."
+    );
+    let text = all_text(&fs);
+    assert!(text.contains(
+        "The primary resolver failure (198.51.100.2, 198.51.100.3) is most likely a consequence"
+    ));
+    assert!(text.contains("IPv6 works while IPv4 fails: the line is fine;"));
+}
+
+#[test]
+fn real_run_2_public_dns_only_keeps_its_wording() {
+    // Mirrors line 2 of the fixture: HTTPS fine, two public resolvers time out.
+    let mut r = healthy_core();
+    r.checks.dns.as_mut().unwrap().servers = vec![
+        server("public", "1.1.1.1", "ok", false),
+        server("public", "8.8.8.8", "timeout", false),
+        server("public", "9.9.9.9", "timeout", false),
+    ];
+    let fs = diagnose(&r);
+    assert_eq!(codes(&r), ["ipv4_degraded"]);
+    assert_eq!(
+        fs[0].summary,
+        "Degraded IPv4 path: public DNS servers timed out (8.8.8.8, 9.9.9.9)."
+    );
+    assert!(all_text(&fs).contains("IPv6 works while IPv4 fails:"));
+}
+
+#[test]
+fn partial_https_with_ping_loss_is_degraded_not_harmless() {
+    let mut r = healthy();
+    set_v4(&mut r, 3, 0);
+    let fs = diagnose(&r);
+    assert_eq!(codes(&r), ["ipv4_degraded"]);
+    assert_eq!(
+        fs[0].summary,
+        "Degraded IPv4 path: 1 of 4 IPv4 HTTPS probes failed."
+    );
+}
+
+#[test]
+fn slow_ipv4_connect_in_check_07_is_degraded() {
+    let mut r = healthy();
+    set_v4(&mut r, 4, 0);
+    r.checks.http_timing.as_mut().unwrap().probes = vec![
+        HttpProbe {
+            url: "https://www.google.com".into(),
+            ok: true,
+            family: Some("ipv6".into()),
+            connect_ms: Some(107),
+            ..Default::default()
+        },
+        http_probe_ipv4("https://github.com", 7149),
+    ];
+    let fs = diagnose(&r);
+    assert_eq!(codes(&r), ["ipv4_degraded"]);
+    assert_eq!(
+        fs[0].summary,
+        "Degraded IPv4 path: github.com connect took 7.1 s (check 07)."
+    );
+}
+
+#[test]
+fn connect_of_exactly_3000_ms_and_ipv6_slowness_are_not_degraded() {
+    let mut r = healthy();
+    set_v4(&mut r, 4, 0);
+    r.checks.http_timing.as_mut().unwrap().probes =
+        vec![http_probe_ipv4("https://github.com", 3000)];
+    assert_eq!(codes(&r), ["icmp_deprioritized"]);
+
+    let mut r = healthy();
+    r.checks.http_timing.as_mut().unwrap().probes = vec![HttpProbe {
+        url: "https://github.com".into(),
+        ok: true,
+        family: Some("ipv6".into()),
+        connect_ms: Some(7000),
+        ..Default::default()
+    }];
+    assert_eq!(codes(&r), ["no_problem"]);
+}
+
+#[test]
+fn check_07_failed_to_resolve_is_not_ipv4_evidence() {
+    let mut r = healthy();
+    set_v4(&mut r, 4, 0);
+    r.checks.http_timing.as_mut().unwrap().probes = vec![HttpProbe {
+        url: "https://github.com".into(),
+        ok: false,
+        error: Some("curl: (6) Could not resolve host: github.com".into()),
+        ..Default::default()
+    }];
+    assert_eq!(codes(&r), ["icmp_deprioritized"]);
+}
+
+#[test]
+fn check_07_failure_alone_is_degraded() {
+    let mut r = healthy();
+    r.checks.http_timing.as_mut().unwrap().probes = vec![HttpProbe {
+        url: "https://github.com".into(),
+        ok: false,
+        error: Some("curl: (28) Connection timed out after 10006 milliseconds".into()),
+        ..Default::default()
+    }];
+    let fs = diagnose(&r);
+    assert_eq!(codes(&r), ["ipv4_degraded"]);
+    assert_eq!(
+        fs[0].summary,
+        "Degraded IPv4 path: github.com did not connect (check 07)."
+    );
+}
+
+#[test]
+fn no_ipv6_comparison_when_ipv6_is_only_partly_ok() {
+    let mut r = healthy();
+    set_v4(&mut r, 3, 3);
+    r.checks.ipv6_reachability.as_mut().unwrap().https.ok = Some(1);
+    assert_eq!(codes(&r), ["ipv4_degraded"]);
+    assert!(!all_text(&diagnose(&r)).contains("IPv6 works while IPv4 fails"));
+}
+
+#[test]
+fn partial_https_failure_comes_before_vpn_resolver_blame() {
+    let mut r = vpn_primary_timeout();
+    set_v4(&mut r, 3, 3);
+    r.checks.dns.as_mut().unwrap().servers = vec![
+        server("primary", "198.51.100.2", "timeout", true),
+        server("public", "1.1.1.1", "ok", false),
+        server("public", "8.8.8.8", "timeout", false),
+        server("public", "9.9.9.9", "ok", false),
+    ];
+    let fs = diagnose(&r);
+    assert_eq!(codes(&r), ["ipv4_degraded"]);
+    assert!(all_text(&fs).contains(
+        "The VPN resolver failure (198.51.100.2, reached through utun4) is most likely a consequence"
+    ));
+}
+
+#[test]
+fn outage_does_not_blame_the_vpn_resolver() {
+    let mut r = vpn_primary_timeout();
+    set_v4(&mut r, 0, 3);
+    r.checks.dns.as_mut().unwrap().servers = vec![
+        server("primary", "198.51.100.2", "timeout", true),
+        server("public", "1.1.1.1", "ok", false),
+        server("public", "8.8.8.8", "timeout", false),
+        server("public", "9.9.9.9", "ok", false),
+    ];
+    let fs = diagnose(&r);
+    assert_eq!(codes(&r), ["ipv4_outage"]);
+    assert!(all_text(&fs).contains(
+        "The VPN resolver failure (198.51.100.2, reached through utun4) is most likely a consequence"
+    ));
+}
+
+#[test]
+fn ping_loss_with_full_https_and_fast_check_07_stays_harmless() {
+    let mut r = healthy();
+    set_v4(&mut r, 4, 0);
+    r.checks.http_timing.as_mut().unwrap().probes =
+        vec![http_probe_ipv4("https://github.com", 100)];
+    assert_eq!(codes(&r), ["icmp_deprioritized"]);
+}

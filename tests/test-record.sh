@@ -107,7 +107,7 @@ full, single, empty = [json.loads(l) for l in open(sys.argv[1])]
 keys = ["schema", "ts", "tool", "tool_version", "os", "mode", "duration_ms", "exit", "checks", "diagnosis"]
 for r in (full, single, empty):
     assert list(r.keys()) == keys, list(r.keys())
-    assert r["schema"] == 1 and r["tool"] == "nettest-bash" and r["tool_version"] == "0.2.0"
+    assert r["schema"] == 1 and r["tool"] == "nettest-bash" and r["tool_version"] == "0.2.1"
     assert len(r["ts"]) == 25 and r["ts"][22] == ":", r["ts"]
 assert full["mode"] == "full" and full["duration_ms"] == 21034 and full["exit"] == 1
 assert single["mode"] == "single" and list(single["checks"]) == ["dns"]

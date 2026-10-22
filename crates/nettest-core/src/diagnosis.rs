@@ -35,6 +35,19 @@ fn s(v: &str) -> String {
     v.to_string()
 }
 
+/// Milliseconds as seconds with one decimal ("7.1"), integer math only so it
+/// matches the bash tool exactly.
+fn secs1(ms: u64) -> String {
+    let t = (ms + 50) / 100;
+    format!("{}.{}", t / 10, t % 10)
+}
+
+/// The host part of an https URL.
+fn host_of(url: &str) -> &str {
+    let rest = url.split_once("://").map_or(url, |(_, r)| r);
+    rest.split('/').next().unwrap_or(rest)
+}
+
 /// Diagnose the checks present in `rec`. A check that did not run contributes
 /// "unknown", never "failed".
 pub fn diagnose(rec: &RunRecord) -> Vec<Finding> {
@@ -102,6 +115,80 @@ pub fn diagnose(rec: &RunRecord) -> Vec<Finding> {
     let pub_names = pub_timeouts.join(", ");
     let pub_degraded = pub_tried > 0 && pub_timeouts.len() * 2 > pub_tried;
 
+    // IPv6 fully OK (every probe answered): lets us say the line itself is fine.
+    let v6_full = v6_known && v6_ok.unwrap_or(0) == v6_tot.unwrap_or(0);
+
+    // IPv4 evidence short of an outage. Order: HTTPS probes, check 07, public DNS.
+    let mut evidence: Vec<String> = Vec::new();
+    let mut v4_partial = false;
+    if let (true, false, Some(tot)) = (v4_known, v4_fail, v4_tot) {
+        let ok = v4_ok.unwrap_or(0);
+        if ok < tot {
+            v4_partial = true;
+            let nfail = (tot - ok) as usize;
+            let ntimed = v4_https
+                .map(|h| {
+                    h.targets
+                        .iter()
+                        .filter(|t| {
+                            !t.ok && t.error.as_deref().is_some_and(|e| e.contains("timed out"))
+                        })
+                        .count()
+                })
+                .unwrap_or(0);
+            let word = if ntimed == nfail {
+                "timed out"
+            } else {
+                "failed"
+            };
+            evidence.push(format!("{nfail} of {tot} IPv4 HTTPS probes {word}"));
+        }
+    }
+    // Check 07 uses the default stack, so a failed probe means the IPv4 fallback
+    // failed too, and a slow connect on an IPv4 probe is an IPv4 symptom. A probe
+    // that failed only to resolve the name says nothing about IPv4.
+    let mut c07: Vec<String> = Vec::new();
+    if let Some(h) = c.http_timing.as_ref() {
+        for p in h.probes.iter().filter(|p| !p.ok) {
+            if p.error.as_deref().is_some_and(|e| e.contains("esolve")) {
+                continue;
+            }
+            c07.push(format!("{} did not connect", host_of(&p.url)));
+        }
+        for p in h.probes.iter().filter(|p| p.ok) {
+            if p.family.as_deref() == Some("ipv4") {
+                if let Some(ms) = p.connect_ms.filter(|ms| *ms > 3000) {
+                    c07.push(format!("{} connect took {} s", host_of(&p.url), secs1(ms)));
+                }
+            }
+        }
+    }
+    if !c07.is_empty() {
+        evidence.push(format!("{} (check 07)", c07.join(", ")));
+    }
+    if pub_degraded {
+        evidence.push(format!("public DNS servers timed out ({pub_names})"));
+    }
+
+    // A failing primary/VPN resolver next to a bad IPv4 path is a consequence of it.
+    let cons_line = if prim_bad.is_empty() {
+        None
+    } else if via_vpn {
+        Some(format!(
+            "The VPN resolver failure ({prim_bad}, reached through {prim_if}) is most likely a consequence, not its own fault."
+        ))
+    } else {
+        Some(format!(
+            "The primary resolver failure ({prim_bad}) is most likely a consequence, not its own fault."
+        ))
+    };
+    // The IPv4 outage findings carry it themselves unless the degraded finding does.
+    let out_cons = if pub_degraded {
+        None
+    } else {
+        cons_line.clone()
+    };
+
     // 1. Gateway.
     let mut local_down = false;
     if gw_ok == Some(false) {
@@ -132,68 +219,61 @@ pub fn diagnose(rec: &RunRecord) -> Vec<Finding> {
             }
             _ => s("IPv4 stops somewhere past your router"),
         };
-        if v6_known && v6_works {
-            out.push(Finding::new(
+        let (code, summary, first) = if v6_known && v6_works {
+            (
                 "ipv4_outage",
                 "ISP IPv4 outage (often their CGNAT): sites with IPv6 load, IPv4-only sites don't.",
-                vec![format!(
-                    "Restart the router/ONT. If it persists, report to the ISP that {hop_txt}, IPv6 works."
-                )],
-            ));
+                format!("Restart the router/ONT. If it persists, report to the ISP that {hop_txt}, IPv6 works."),
+            )
         } else if v6_known {
-            out.push(Finding::new(
+            (
                 "isp_down",
                 "Both IPv4 and IPv6 fail past your router: the ISP connection is down.",
-                vec![format!(
-                    "Restart the router/ONT. If it persists, report to the ISP that {hop_txt} and IPv6 fails too."
-                )],
-            ));
+                format!("Restart the router/ONT. If it persists, report to the ISP that {hop_txt} and IPv6 fails too."),
+            )
         } else if v6_global == Some(false) {
-            out.push(Finding::new(
+            (
                 "ipv4_outage_no_ipv6",
                 "IPv4 fails past your router and this network has no IPv6 to compare.",
-                vec![format!(
-                    "Most likely an ISP outage. Restart the router/ONT; if it persists, report that {hop_txt}."
-                )],
-            ));
+                format!("Most likely an ISP outage. Restart the router/ONT; if it persists, report that {hop_txt}."),
+            )
         } else {
-            out.push(Finding::new(
+            (
                 "ipv4_outage_unverified",
                 "IPv4 fails past your router.",
-                vec![format!(
-                    "Run the full nettest (without arguments) to compare with IPv6. Restart the router/ONT; if it persists, report that {hop_txt}."
-                )],
-            ));
-        }
+                format!("Run the full nettest (without arguments) to compare with IPv6. Restart the router/ONT; if it persists, report that {hop_txt}."),
+            )
+        };
+        let mut advice = vec![first];
+        advice.extend(out_cons.clone());
+        out.push(Finding::new(code, summary, advice));
     }
 
-    // 3. DNS. Blame the primary (VPN) resolver only when the public resolvers answer.
-    // If the public IPv4 resolvers time out too, the evidence points at the IPv4 path.
+    // 3. IPv4 degraded: partial HTTPS failures, a failed or slow IPv4 connect in
+    // check 07, or most public IPv4 resolvers timing out. An outage (step 2) already
+    // covers the first two, so only the DNS evidence adds a finding next to it.
+    // The primary (VPN) resolver is blamed only when IPv4 itself looks fine.
+    let degraded = !local_down && (pub_degraded || (!v4_fail && (v4_partial || !c07.is_empty())));
     let any_dns_ok = servers.iter().any(|x| x.result == "ok");
-    if pub_degraded && !local_down {
-        let mut lines = vec![s(
-            "Several public IPv4 DNS servers time out as well, so the problem is the IPv4 path, not one DNS server.",
-        )];
-        if !prim_bad.is_empty() {
-            if via_vpn {
-                lines.push(format!(
-                    "The VPN resolver failure ({prim_bad}, reached through {prim_if}) is most likely a consequence, not its own fault."
-                ));
-            } else {
-                lines.push(format!(
-                    "The primary resolver failure ({prim_bad}) is most likely a consequence, not its own fault."
-                ));
-            }
+    if degraded {
+        let mut lines = vec![if pub_degraded {
+            s("Several public IPv4 DNS servers time out as well, so the problem is the IPv4 path, not one DNS server.")
+        } else {
+            s("Some IPv4 connections fail or are slow, so the IPv4 path is unreliable.")
+        }];
+        lines.extend(cons_line.clone());
+        if v6_full {
+            lines.push(s("IPv6 works while IPv4 fails: the line is fine; the IPv4 path (often the ISP's CGNAT) or something on this machine that handles only IPv4 traffic (VPN/security agent) is at fault. Compare with another device on the same network to tell which."));
         }
         lines.push(s(
             "Re-run, or use nettest watch to see how often it happens. If it persists, report IPv4 instability to the ISP.",
         ));
         out.push(Finding::new(
             "ipv4_degraded",
-            format!("Degraded IPv4 path: public DNS servers timed out ({pub_names})."),
+            format!("Degraded IPv4 path: {}.", evidence.join("; ")),
             lines,
         ));
-    } else if (sys_status == "WARN" || sys_status == "FAIL") && any_dns_ok {
+    } else if !v4_fail && (sys_status == "WARN" || sys_status == "FAIL") && any_dns_ok {
         if !prim_bad.is_empty() {
             if via_vpn {
                 out.push(Finding::new(
@@ -225,8 +305,9 @@ pub fn diagnose(rec: &RunRecord) -> Vec<Finding> {
         }
     }
 
-    // 4. ICMP loss with working HTTPS.
-    if !local_down && v4_known && !v4_fail {
+    // 4. ICMP loss with fully working IPv4 HTTPS and no IPv4 trouble in check 07.
+    let https_full = v4_known && v4_ok.unwrap_or(0) == v4_tot.unwrap_or(0);
+    if !local_down && https_full && c07.is_empty() {
         if let (Some(ok), Some(tot)) = (icmp_ok, icmp_tot) {
             if ok < tot {
                 out.push(Finding::new(

@@ -150,11 +150,11 @@ reworded; the `code` may not.
 | `isp_down` | IPv4 and IPv6 both fail past the router. |
 | `ipv4_outage_no_ipv6` | IPv4 fails and the network has no IPv6 to compare. |
 | `ipv4_outage_unverified` | IPv4 fails and IPv6 was not tested (single-check run). |
-| `ipv4_degraded` | Most public IPv4 DNS servers (1.1.1.1, 8.8.8.8, 9.9.9.9) time out. The IPv4 path is unreliable, and a failing primary or VPN resolver is probably a consequence. |
-| `primary_dns_timeout_vpn` | The primary resolver times out, public resolvers answer, and the primary resolver is a VPN's. |
+| `ipv4_degraded` | The IPv4 path is unreliable. Any of: some (not most) IPv4 HTTPS probes failed; check 07 had an IPv4 probe fail or an IPv4 connect over 3000 ms; most public IPv4 DNS servers (1.1.1.1, 8.8.8.8, 9.9.9.9) timed out. The summary names the evidence. A failing primary or VPN resolver is probably a consequence. (Before bash 0.2.1 / Rust 0.1.1 only the DNS evidence counted.) |
+| `primary_dns_timeout_vpn` | The primary resolver times out, public resolvers answer, IPv4 is neither degraded nor in outage, and the primary resolver is a VPN's. |
 | `primary_dns_timeout` | Same, for a primary resolver that is not a VPN's. |
 | `system_dns_slow` | System lookups are slow but every server answered the direct test. |
-| `icmp_deprioritized` | Ping loss while HTTPS works. Harmless. |
+| `icmp_deprioritized` | Ping loss while every IPv4 HTTPS probe works and check 07 had no IPv4 failure or slow connect. Harmless. Never emitted next to a partial HTTPS failure (before 0.2.1 / 0.1.1 it was). |
 
 ## Reading it without tools
 

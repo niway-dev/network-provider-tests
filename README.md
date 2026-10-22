@@ -136,8 +136,8 @@ After the checks, `nettest` prints the most likely explanation:
 | IPv4 and IPv6 both fail past the gateway | ISP down entirely | Restart the router or ONT; report to the ISP |
 | IPv4 fails and there is no IPv6 to compare | Probably an ISP outage | Same as above |
 | System DNS is slow, public resolvers answer, but the primary resolver times out | The primary resolver is dead; the diagnosis names the server, and says so when it is a VPN resolver | Disconnect the VPN or fix its upstream DNS; or change the DNS servers |
-| Most public IPv4 resolvers (1.1.1.1, 8.8.8.8, 9.9.9.9) time out too | Degraded IPv4 path (`ipv4_degraded`). A failing primary or VPN resolver is probably a consequence, not the cause | Re-run or use `nettest watch`; report IPv4 instability to the ISP |
-| Ping loss but HTTPS works | The ISP deprioritizes ping | Nothing, harmless |
+| Some IPv4 HTTPS probes fail (but not most), or check 07's IPv4 probe fails or connects in over 3 s, or most public IPv4 resolvers (1.1.1.1, 8.8.8.8, 9.9.9.9) time out | Degraded IPv4 path (`ipv4_degraded`); the summary names the evidence. A failing primary or VPN resolver is reported as a probable consequence, not blamed. When IPv6 is fully OK it also says the line is fine and the IPv4 path (or something IPv4-only on this machine) is at fault | Re-run or use `nettest watch`; compare with another device on the same network; report IPv4 instability to the ISP |
+| Ping loss while every IPv4 HTTPS probe works and check 07 had no IPv4 trouble | The ISP deprioritizes ping | Nothing, harmless |
 | Nothing wrong | "No problem detected right now." | Run `nettest watch 5` during the next incident |
 
 Each finding has a stable code (`ipv4_outage`, `ipv4_degraded`, ...) stored in the

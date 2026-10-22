@@ -9,7 +9,7 @@
 #   - Do not call the nt_pass/nt_warn/nt_fail helpers from a subshell (pipes,
 #     command substitution): the counters would be lost. Use `done < <(cmd)`.
 
-NT_VERSION="0.2.0"
+NT_VERSION="0.2.1"
 
 NT_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NT_ROOT="$(cd "$NT_LIB_DIR/.." && pwd)"

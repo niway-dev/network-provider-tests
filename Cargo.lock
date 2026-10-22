@@ -614,7 +614,7 @@ dependencies = [
 
 [[package]]
 name = "nettest-cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "chrono",
  "clap",
@@ -624,7 +624,7 @@ dependencies = [
 
 [[package]]
 name = "nettest-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "async-trait",
  "chrono",
