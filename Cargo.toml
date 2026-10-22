@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/nettest-core", "crates/nettest-cli"]
+members = ["crates/nettest-core", "crates/nettest-cli", "apps/desktop/src-tauri"]
 
 [workspace.package]
 version = "0.1.1"
