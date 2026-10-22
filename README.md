@@ -29,6 +29,33 @@ ln -s "$PWD/bin/nettest-log" ~/.local/bin/nettest-log
 
 Run the tests (no network needed) with `tests/run.sh`.
 
+## Rust CLI (preview)
+
+A Rust rewrite of the same checks lives in `crates/`. It prints the same lines,
+applies the same diagnosis rules and writes the same `runs.jsonl` records
+(`"tool":"nettest-rs"`), so `nettest history` from either tool reads both. It
+needs no sudo and no `dig`/`curl`/`traceroute`; the one external dependency is a
+Rust toolchain (`rustup`, stable).
+
+```sh
+cargo build --release
+./target/release/nettest            # same commands as the bash tool
+./target/release/nettest history 10
+./target/release/nettest watch 5
+```
+
+Optional: put it on your PATH (use a different name if the bash `nettest` is
+already linked there).
+
+```sh
+mkdir -p ~/.local/bin
+ln -s "$PWD/target/release/nettest" ~/.local/bin/nettest-rs
+```
+
+`cargo test --workspace` runs the Rust tests (no network needed). The bash tool
+under `bin/` stays the reference until the Rust CLI replaces it; see
+[`docs/plans/`](docs/plans/) for the roadmap.
+
 ## Usage
 
 ```sh

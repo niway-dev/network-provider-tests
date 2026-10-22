@@ -105,8 +105,17 @@ async fn get_inner(url: &str, family: Family) -> HttpResult {
     let t_connect = Instant::now();
     let mut last_err = "connection refused or unreachable".to_string();
     let mut connected = None;
-    for addr in addrs {
-        match tokio::time::timeout(CONNECT_TIMEOUT, TcpStream::connect(addr)).await {
+    let count = addrs.len();
+    for (i, addr) in addrs.into_iter().enumerate() {
+        // Give up on a silent address after a few seconds so the next one gets a
+        // chance; the last one may use the whole budget, like curl, so a dead
+        // path reports "timed out after Ns".
+        let attempt = if i + 1 < count {
+            tokio::time::timeout(CONNECT_TIMEOUT, TcpStream::connect(addr)).await
+        } else {
+            Ok(TcpStream::connect(addr).await)
+        };
+        match attempt {
             Ok(Ok(s)) => {
                 connected = Some((s, addr));
                 break;

@@ -1,6 +1,6 @@
 # Rust core + desktop app design
 
-Date: 2026-10-22. Status: design, nothing implemented. Plan:
+Date: 2026-10-22. Status: design; M1 (Rust CLI on macOS) implemented on `main`, M2 to M4 not started. Plan:
 [`docs/plans/2026-10-22-rust-core-desktop.md`](../plans/2026-10-22-rust-core-desktop.md).
 
 ## Summary (one minute)
@@ -219,3 +219,37 @@ Bash is deleted (M4) when, on the owner's macOS machine:
    tool on `main`, and vice versa.
 4. `nettest history` and `nettest watch` work with a `runs.jsonl` that mixes
    bash and Rust lines.
+
+## Implementation notes (M1)
+
+Deviations from the design above, found while building the macOS CLI. Each is
+one line of why.
+
+| Area | Design said | What shipped | Why |
+| --- | --- | --- | --- |
+| DNS (check 06) | `hickory-resolver` | Hand-rolled UDP A query (`probes/os/dns.rs`, about 60 lines); the system path asks the servers of `/etc/resolv.conf` one by one like `dig +tries=1 +time=3` | The checks need the raw rcode and exact per-server timeouts; a tiny client is simpler than configuring a resolver to behave like `dig`. |
+| Default route / link kind | `netdev` | `route -n get default` and `networksetup -listallhardwareports` | Same source as the bash tool, so gateway and Wi-Fi/wired detection agree 1:1. `netdev` is used only for the interface list (utun IPv4 addresses, global IPv6). |
+| HTTPS probe | `HEAD` | `GET /` with `Connection: close`, body drained | `curl -o /dev/null` downloads the body, so `total` is comparable with the bash numbers. No redirects, like curl without `-L`. |
+| Traceroute | Spike, fallback `traceroute -n` | Native path works unprivileged on macOS (Darwin 25.6): the `SOCK_DGRAM`/`IPPROTO_ICMP` socket delivers Time Exceeded with the IP header. All 15 hops are probed concurrently (one socket each, started 60 ms apart so they do not queue on a slow uplink), one retry for a silent hop, cut at the first echo reply. The `traceroute -n` fallback (`traceroute_cmd.rs`) runs only if the socket cannot be opened | Closes open question about the spike. Total time is 2 to 3 s instead of up to 15 s. |
+| Check timeout | `status: skip` with an `error` field | `FAIL` with a printed line `check ... did not finish within 60 s` | `docs/run-record.md`: a check that crashed is stored as `FAIL`. No new field. |
+| `Line` model | `Line { status, text, hint }` | `LineKind::{Status, Hint, Dim}` | Bash prints hints and notes as separate indented lines, sometimes several. |
+| Check 07 failure text | curl's message | `<url>: request failed: <reason>` with the same reason words as checks 03/04 | There is no curl. The record keeps the reason in `error`. |
+| Record `tool` / version | `nettest-rs` | `nettest-rs`, `0.1.0` | Rust tool versions independently of bash `0.2.0`. |
+| `history` | `history [-n N]` | Also accepts a positional `N` and `--since`; `--json` prints the stored lines | Command line parity with bash. |
+| `watch` mode | `"mode":"watch"` (M3 light run) | `"mode":"full"` | `docs/run-record.md` allows only `full` and `single`; the light run is M3. |
+| TLS | `aws-lc-rs` or `ring` | `ring`, roots from `webpki-roots` | No C toolchain needed. Trade-off: a network that intercepts TLS with a private CA fails the handshake, where curl would trust the system keychain. |
+
+### Parity result (M1, 2026-10-22, macOS, no sudo)
+
+- Bash and Rust runs back to back into one data directory: bash `history` (python
+  and awk engines) and Rust `history` print identical tables for the mixed file,
+  and every line validates against `docs/run-record.md`.
+- The runs happened during a live, flapping ISP IPv4 outage, so the two tools
+  saw different network states minute to minute (in either run order). Where
+  the state matched, lines matched modulo numbers. The remaining text
+  differences are the intentional ones in the table above.
+- Diagnosis: `crates/nettest-core/tests/rediagnose.rs` re-diagnoses three real
+  bash-written outage records (anonymized, `tests/fixtures/run-bash-real.jsonl`)
+  and the sample records; codes and summaries equal what bash stored.
+- A full Rust run takes 15 to 25 s (about 6 s on a healthy link); bash takes 22 to 29 s.
+- `watch 1` recorded two runs in 135 s and stopped cleanly on Ctrl-C.

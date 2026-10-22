@@ -18,7 +18,10 @@ fn rust_files(dir: &Path, out: &mut Vec<std::path::PathBuf>) {
 #[test]
 fn no_raw_sockets_in_core() {
     let mut files = Vec::new();
-    rust_files(&Path::new(env!("CARGO_MANIFEST_DIR")).join("src"), &mut files);
+    rust_files(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("src"),
+        &mut files,
+    );
     assert!(!files.is_empty());
     for f in files {
         let text = fs::read_to_string(&f).unwrap();

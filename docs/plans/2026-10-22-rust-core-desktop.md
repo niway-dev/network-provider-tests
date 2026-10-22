@@ -130,7 +130,7 @@ Accept: `nettest --list` prints the seven checks; `nettest` appends one line to
 `runs.jsonl`; `nettest history -n 3` prints the last three runs;
 `nettest watch 1` runs twice in two minutes and exits cleanly on Ctrl-C.
 
-### T1.13 Parity pass against bash on macOS
+### T1.13 Parity pass against bash on macOS (done)
 
 Run bash `./bin/nettest` and Rust `nettest` back to back three times; diff the
 lines ignoring numbers. Fix wording gaps. Confirm the bash `nettest history`
