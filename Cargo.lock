@@ -627,6 +627,7 @@ dependencies = [
  "async-trait",
  "chrono",
  "dirs",
+ "futures-util",
  "libc",
  "netdev",
  "ping-async",

@@ -9,6 +9,7 @@ description = "Checks, diagnosis, run record and store for nettest"
 async-trait = "0.1.92"
 chrono = { version = "0.4.45", default-features = false, features = ["clock", "std"] }
 dirs = "7.0.0"
+futures-util = { version = "0.3.34", default-features = false, features = ["alloc"] }
 libc = "0.2.191"
 netdev = "0.46.3"
 ping-async = "1.0.2"

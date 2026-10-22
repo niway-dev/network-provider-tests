@@ -16,7 +16,7 @@ Rules for every task:
 
 ## M1: Rust CLI on macOS writing `runs.jsonl` compatible with bash
 
-### T1.1 Workspace skeleton
+### T1.1 Workspace skeleton (done)
 
 Files: `Cargo.toml` (workspace), `crates/nettest-core/Cargo.toml`,
 `crates/nettest-core/src/lib.rs`, `crates/nettest-cli/Cargo.toml`,
@@ -25,7 +25,7 @@ Files: `Cargo.toml` (workspace), `crates/nettest-core/Cargo.toml`,
 Accept: `cargo build --workspace` succeeds; `cargo run -p nettest-cli -- --help`
 prints usage.
 
-### T1.2 Run record types
+### T1.2 Run record types (done)
 
 Files: `crates/nettest-core/src/record.rs`, `tests/fixtures/run-bash-sample.jsonl`
 (copy a real line from the bash tool on `main` once it exists; until then,
@@ -34,7 +34,7 @@ the spec).
 Accept: `cargo test -p nettest-core record` passes: the fixture deserializes;
 serialize then deserialize is identity; unknown fields are ignored.
 
-### T1.3 Store
+### T1.3 Store (done)
 
 Files: `crates/nettest-core/src/store.rs`.
 Behavior: directory from `NETTEST_DATA_DIR`, else macOS
@@ -44,13 +44,13 @@ and returns their count.
 Accept: tests use a temp dir; two threads append 100 records each and every
 line parses.
 
-### T1.4 Check model, `Probes` trait, fake probes
+### T1.4 Check model, `Probes` trait, fake probes (done)
 
 Files: `crates/nettest-core/src/model.rs`, `src/probes/mod.rs`,
 `src/probes/fake.rs` (test-only builder that scripts each method's answer).
 Accept: `cargo test -p nettest-core` compiles with the fake; no behavior yet.
 
-### T1.5 Diagnosis as a pure function with table tests
+### T1.5 Diagnosis as a pure function with table tests (done)
 
 Files: `crates/nettest-core/src/diagnosis.rs`, `tests/diagnosis.rs`.
 Port the bash `diagnose()` rule by rule (spec section "Diagnosis rules").
