@@ -1,6 +1,6 @@
 # 2026-10-22: intermittent IPv4 failures on the home connection
 
-Status: ongoing at the time of writing. Written from measurements taken by hand
+Status: resolved on 2026-10-22 by changing ISP (see "Resolution"). Written from measurements taken by hand
 and with `nettest` on one machine. Times are local (UTC-5). "Morning" means
 before 10:00; the exact time was not recorded, which is itself a lesson (see
 "What to measure next time").
@@ -93,3 +93,38 @@ what was copied from the terminal. From version 0.2.0 each run is stored in
 Use [`templates/isp-complaint.es.md`](../../templates/isp-complaint.es.md)
 (Spanish) and fill it from the failing runs. The fields in
 [`docs/run-record.md`](../run-record.md) show where each number comes from.
+
+## Resolution
+
+The owner cancelled the ISP and moved to a different provider the same day. The first
+`nettest` 0.2.1 run on the new connection, from a fresh clone, at 16:34:
+
+| Check | Result |
+| --- | --- |
+| Gateway (wired) | 0% loss, 3.7 ms |
+| HTTPS over IPv4 | 4 of 4 passing, 0.8 to 1.6 s |
+| HTTPS over IPv6 | 2 of 2 passing, 0.4 to 0.6 s |
+| Ping 1.1.1.1 / 8.8.8.8 / 9.9.9.9 | 0% / 0% / 20% loss |
+| Traceroute to 1.1.1.1 | Reached at hop 7, 5.5 ms; no silent hops |
+| System DNS lookups | 27 to 31 ms |
+| DNS servers | The new ISP's resolvers 4 to 5 ms; 8.8.8.8 and 9.9.9.9 answered; 1.1.1.1 timed out |
+| HTTP timing | github.com over IPv4 spent 1.1 s in TCP connect (WARN) |
+
+The checks that failed in the morning (HTTPS over IPv4, the traceroute past the ISP's
+private hops) all pass. Three WARN lines remain, each one on its own and below any
+diagnosis rule: ping loss to one host, one public resolver timing out, and one slow
+connect. The diagnosis printed `unmatched_warnings`, not an outage.
+
+### What changed in the tool
+
+When every check passes, the diagnosis now says "Connection working normally: every
+check passed." instead of "No problem detected right now.", so a healthy run reads as a
+clear all-clear. The code stays `no_problem` ([run record](../run-record.md)).
+
+### Still open
+
+- Keep `nettest watch 5` running for a day on the new connection, so "it works" rests on
+  a history and not on one run.
+- The three isolated WARN lines above produce `unmatched_warnings`. If they keep appearing
+  on a connection that otherwise works, a rule for "minor warnings only" would let the
+  diagnosis say so instead of pointing at the WARN lines.

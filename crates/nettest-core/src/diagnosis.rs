@@ -344,7 +344,7 @@ pub fn diagnose(rec: &RunRecord) -> Vec<Finding> {
             };
             out.push(Finding::new(
                 "no_problem",
-                "No problem detected right now.",
+                "Connection working normally: every check passed.",
                 vec![format!(
                     "Checks run: {ran}. If the problem comes and goes, run nettest watch during an incident."
                 )],
