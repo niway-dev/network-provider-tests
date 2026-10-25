@@ -58,5 +58,5 @@ nettest  2026-10-22 11:00:00 -0500  on test-host
   PASS  07-http-timing
 
 == Diagnosis ==
-  * No problem detected right now.
+  * Connection working normally: every check passed.
       Checks run: local-network vpn-detection ipv4-reachability ipv6-reachability route-trace dns http-timing. If the problem comes and goes, run nettest watch during an incident.

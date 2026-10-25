@@ -142,7 +142,7 @@ reworded; the `code` may not.
 
 | Code | Meaning |
 | --- | --- |
-| `no_problem` | No problem detected. |
+| `no_problem` | Every check passed: the connection is working normally. Printed as "Connection working normally: every check passed." Older records carry "No problem detected right now."; the code is the contract, not the text. |
 | `unmatched_warnings` | Some check warned or failed but no rule explains it. |
 | `local_network_down` | This Mac cannot reach its own router. |
 | `gateway_icmp_ignored` | The router ignores ping but traffic works. Harmless. |

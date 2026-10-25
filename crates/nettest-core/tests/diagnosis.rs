@@ -120,7 +120,7 @@ fn healthy_network() {
     let fs = diagnose(&healthy());
     assert_eq!(fs.len(), 1);
     assert_eq!(fs[0].code, "no_problem");
-    assert_eq!(fs[0].summary, "No problem detected right now.");
+    assert_eq!(fs[0].summary, "Connection working normally: every check passed.");
     assert!(fs[0].advice[0].starts_with(
         "Checks run: local-network vpn-detection ipv4-reachability ipv6-reachability route-trace dns http-timing."
     ));

@@ -205,7 +205,7 @@ diagnose() {
       say unmatched_warnings "No known pattern matched, but some checks reported WARN or FAIL." \
         "Read the WARN/FAIL lines above; the hint under each one explains what it means."
     else
-      say no_problem "No problem detected right now." \
+      say no_problem "Connection working normally: every check passed." \
         "Checks run: ${ran:-none}. If the problem comes and goes, run nettest watch during an incident."
     fi
   fi
